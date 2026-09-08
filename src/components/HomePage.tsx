@@ -1,22 +1,17 @@
 import React, { useState } from 'react';
-import { Navigation } from './Navigation';
 import { HeroSection } from './HeroSection';
 import { FeatureStrip } from './FeatureStrip';
 import { ParticleBackground } from './ParticleBackground';
 import { DemoWorkspaceModal } from './DemoWorkspaceModal';
-import type { NavigationTab, CaseOption } from '../types';
+import type { CaseOption } from '../types';
 
-export const HomePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<NavigationTab>('Home');
+interface HomePageProps {
+  onEnterWorkspace: () => void;
+  selectedCase: CaseOption;
+}
+
+export const HomePage: React.FC<HomePageProps> = ({ onEnterWorkspace, selectedCase }) => {
   const [modalMode, setModalMode] = useState<'investigation' | 'demo' | null>(null);
-
-  const cases: CaseOption[] = [
-    { id: 'case-001', title: 'Case #001', status: 'Active Scene', date: '2026.09.07' },
-    { id: 'case-002', title: 'Case #002', status: 'Archived', date: '2026.08.14' },
-    { id: 'case-003', title: 'Case #003', status: 'In Review', date: '2026.08.01' },
-  ];
-
-  const [selectedCase, setSelectedCase] = useState<CaseOption>(cases[0]);
 
   const handleStartInvestigation = () => {
     setModalMode('investigation');
@@ -26,17 +21,10 @@ export const HomePage: React.FC = () => {
     setModalMode('demo');
   };
 
-  const handleSelectTab = (tab: NavigationTab) => {
-    setActiveTab(tab);
-    if (tab !== 'Home') {
-      setModalMode('investigation');
-    }
-  };
-
   return (
     <div style={{
       width: '100%',
-      height: '100vh',
+      height: '100%',
       display: 'flex',
       flexDirection: 'column',
       position: 'relative',
@@ -46,18 +34,7 @@ export const HomePage: React.FC = () => {
       {/* 1. Flowing Cyber Particle Wave Background */}
       <ParticleBackground />
 
-      {/* 2. Top Navigation Bar */}
-      <Navigation
-        activeTab={activeTab}
-        onSelectTab={handleSelectTab}
-        selectedCase={selectedCase}
-        onSelectCase={setSelectedCase}
-        cases={cases}
-        onOpenSettings={() => alert('Forensic System Configuration: 3D Shader Quality: Ultra, Point Cloud Density: High, Telemetry Grid: Active.')}
-        onOpenProfile={() => alert('Agent ID: 867-B-FORENSIC\nClearance Level: Tier 1 CSI Investigator')}
-      />
-
-      {/* 3. Hero Section (Left Typography + Right 3D Floating Scene) */}
+      {/* 2. Hero Section (Left Typography + Right 3D Floating Scene) */}
       <main style={{
         flex: 1,
         minHeight: 0,
@@ -73,20 +50,19 @@ export const HomePage: React.FC = () => {
           onExploreDemo={handleExploreDemo}
         />
 
-        {/* 4. Bottom Feature Strip */}
+        {/* 3. Bottom Feature Strip */}
         <div style={{ padding: '0 48px', marginBottom: '8px' }}>
-          <FeatureStrip onSelectFeature={(idx) => {
-            console.log('Feature clicked:', idx);
-          }} />
+          <FeatureStrip onSelectFeature={() => onEnterWorkspace()} />
         </div>
       </main>
 
-      {/* 5. Navigation / Exploration Modal */}
+      {/* 4. Navigation / Exploration Modal */}
       <DemoWorkspaceModal
         isOpen={modalMode !== null}
         mode={modalMode || 'demo'}
         selectedCase={selectedCase}
         onClose={() => setModalMode(null)}
+        onEnterWorkspace={onEnterWorkspace}
       />
     </div>
   );

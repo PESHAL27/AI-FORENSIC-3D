@@ -7,6 +7,7 @@ interface DemoWorkspaceModalProps {
   mode: 'investigation' | 'demo';
   selectedCase: CaseOption;
   onClose: () => void;
+  onEnterWorkspace?: () => void;
 }
 
 export const DemoWorkspaceModal: React.FC<DemoWorkspaceModalProps> = ({
@@ -14,6 +15,7 @@ export const DemoWorkspaceModal: React.FC<DemoWorkspaceModalProps> = ({
   mode,
   selectedCase,
   onClose,
+  onEnterWorkspace,
 }) => {
   if (!isOpen) return null;
 
@@ -191,8 +193,10 @@ export const DemoWorkspaceModal: React.FC<DemoWorkspaceModalProps> = ({
 
           <button
             onClick={() => {
-              alert(`Navigating to ${mode === 'demo' ? 'Preloaded Demo' : 'Investigation Workspace'} (${selectedCase.title}).`);
               onClose();
+              if (onEnterWorkspace) {
+                onEnterWorkspace();
+              }
             }}
             className="btn-primary-glow"
             style={{
