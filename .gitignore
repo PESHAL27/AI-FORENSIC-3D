@@ -17,8 +17,20 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Environment variables & secrets
+.env
+.env.*
+backend/.env
+backend/.env.*
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+backend/venv/
+.pytest_cache/
+
+# Local database storage (optional keep db.json tracked if initial seed, but ignore uploads)
+

@@ -12,6 +12,10 @@ import {
   HardDrive,
   Hash,
   ExternalLink,
+  Sparkles,
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import type { EvidenceItem } from '../../types/investigation';
 
@@ -19,12 +23,16 @@ interface EvidencePreviewModalProps {
   evidence: EvidenceItem | null;
   onClose: () => void;
   onDelete?: (item: EvidenceItem) => void;
+  onAnalyze?: (evidence: EvidenceItem) => void;
+  isAnalyzing?: boolean;
 }
 
 export const EvidencePreviewModal: React.FC<EvidencePreviewModalProps> = ({
   evidence,
   onClose,
   onDelete,
+  onAnalyze,
+  isAnalyzing = false,
 }) => {
   if (!evidence) return null;
 
@@ -321,6 +329,121 @@ export const EvidencePreviewModal: React.FC<EvidencePreviewModalProps> = ({
             </div>
             <span style={{ color: '#4ade80', fontSize: '9.5px' }}>IMMUTABLE REGISTER</span>
           </div>
+
+          {/* AI SCENE UNDERSTANDING ANALYSIS FINDINGS (FOR IMAGES) */}
+          {(evidence.type === 'image' || evidence.type === '360-image') && (
+            <div style={{
+              borderRadius: '8px',
+              border: '1px solid rgba(0, 240, 255, 0.25)',
+              background: 'rgba(2, 8, 24, 0.75)',
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={14} color="#00f0ff" />
+                  <span style={{
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    letterSpacing: '1px',
+                    color: '#ffffff',
+                  }}>
+                    AI SCENE UNDERSTANDING TELEMETRY
+                  </span>
+                </div>
+
+                <span style={{
+                  fontSize: '9.5px',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  background: evidence.analysis?.status === 'COMPLETED'
+                    ? 'rgba(16, 185, 129, 0.15)'
+                    : evidence.analysis?.status === 'FAILED'
+                    ? 'rgba(239, 68, 68, 0.15)'
+                    : 'rgba(0, 240, 255, 0.1)',
+                  border: evidence.analysis?.status === 'COMPLETED'
+                    ? '1px solid rgba(16, 185, 129, 0.4)'
+                    : evidence.analysis?.status === 'FAILED'
+                    ? '1px solid rgba(239, 68, 68, 0.4)'
+                    : '1px solid rgba(0, 240, 255, 0.25)',
+                  color: evidence.analysis?.status === 'COMPLETED'
+                    ? '#34d399'
+                    : evidence.analysis?.status === 'FAILED'
+                    ? '#f87171'
+                    : '#00f0ff',
+                  fontWeight: 700,
+                }}>
+                  {isAnalyzing
+                    ? 'ANALYZING...'
+                    : evidence.analysis?.status || 'AWAITING ANALYSIS'}
+                </span>
+              </div>
+
+              {evidence.analysis?.result ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{
+                    fontSize: '10px',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    color: '#38bdf8',
+                    background: 'rgba(0, 240, 255, 0.08)',
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                  }}>
+                    CLASSIFICATION: <strong style={{ color: '#ffffff' }}>{evidence.analysis.result.scene_type}</strong> • PROVIDER: <strong style={{ color: '#ffffff' }}>{evidence.analysis.provider} ({evidence.analysis.model})</strong>
+                  </div>
+
+                  <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono, monospace)', color: '#cbd5e1', lineHeight: 1.45 }}>
+                    {evidence.analysis.result.overall_description}
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '8px',
+                    marginTop: '4px',
+                  }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ fontSize: '9px', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>DETECTED OBJECTS</div>
+                      <div style={{ fontSize: '13px', color: '#00f0ff', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>{evidence.analysis.result.objects.length} Entities</div>
+                    </div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ fontSize: '9px', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>SPATIAL RELATIONS</div>
+                      <div style={{ fontSize: '13px', color: '#38bdf8', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>{evidence.analysis.result.relationships.length} Vectors</div>
+                    </div>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '6px 8px', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ fontSize: '9px', color: '#64748b', fontFamily: 'var(--font-mono, monospace)' }}>EVIDENCE LEADS</div>
+                      <div style={{ fontSize: '13px', color: '#34d399', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)' }}>{evidence.analysis.result.possible_evidence.length} Leads</div>
+                    </div>
+                  </div>
+                </div>
+              ) : evidence.analysis?.error_message ? (
+                <div style={{
+                  padding: '8px 10px',
+                  borderRadius: '5px',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#fca5a5',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontSize: '10.5px',
+                }}>
+                  {evidence.analysis.error_message}
+                </div>
+              ) : (
+                <div style={{
+                  fontSize: '10.5px',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  color: '#94a3b8',
+                  lineHeight: 1.4,
+                }}>
+                  This evidence image has not yet been processed by our AI vision model. Click &quot;ANALYZE WITH AI&quot; below to generate structured scene understanding.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
@@ -354,6 +477,50 @@ export const EvidencePreviewModal: React.FC<EvidencePreviewModalProps> = ({
           ) : <div />}
 
           <div style={{ display: 'flex', gap: '10px' }}>
+            {(evidence.type === 'image' || evidence.type === '360-image') && onAnalyze && (
+              <button
+                onClick={() => onAnalyze(evidence)}
+                disabled={isAnalyzing}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  background: isAnalyzing
+                    ? 'rgba(0, 240, 255, 0.2)'
+                    : evidence.analysis?.status === 'COMPLETED'
+                    ? 'rgba(16, 185, 129, 0.15)'
+                    : 'linear-gradient(90deg, rgba(0, 240, 255, 0.2) 0%, rgba(30, 64, 175, 0.35) 100%)',
+                  border: evidence.analysis?.status === 'COMPLETED'
+                    ? '1px solid rgba(16, 185, 129, 0.4)'
+                    : '1px solid rgba(0, 240, 255, 0.45)',
+                  color: evidence.analysis?.status === 'COMPLETED' ? '#34d399' : '#00f0ff',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>ANALYZING IMAGE...</span>
+                  </>
+                ) : evidence.analysis?.status === 'COMPLETED' ? (
+                  <>
+                    <CheckCircle2 size={13} />
+                    <span>RE-ANALYZE WITH AI</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={13} />
+                    <span>ANALYZE WITH AI</span>
+                  </>
+                )}
+              </button>
+            )}
+
             <button
               onClick={onClose}
               style={{

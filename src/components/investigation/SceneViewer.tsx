@@ -7,14 +7,9 @@ import {
   Map as MapIcon,
   CloudLightning,
   Ruler,
-  Maximize2,
-  Minimize2,
-  Info,
-  CheckCircle2,
   Navigation,
   Crosshair,
-  Move,
-  RotateCw,
+  RotateCcw,
   X,
 } from 'lucide-react';
 import type {
@@ -24,6 +19,17 @@ import type {
   ViewportTab,
   ViewportTool,
 } from '../../types/investigation';
+import {
+  createHumanMannequin,
+  createErgonomicChair,
+  createConferenceDesk,
+  createArchitecturalDoor,
+  createBreachedWindow,
+  createGlassDispersionCluster,
+  createSpentCasing,
+  createRoomArchitecture,
+  type MannequinModel,
+} from './sceneModels/forensicModels';
 
 interface SceneViewerProps {
   entities: DetectedEntity[];
@@ -35,6 +41,7 @@ interface SceneViewerProps {
   onUpdateEntityRotation?: (id: string, rotY: number, fullRotation?: [number, number, number]) => void;
   onAddMeasurement?: (measurement: MeasurementItem) => void;
   onOpenEvidencePlacement?: (coords: [number, number, number]) => void;
+  onRestoreOriginalEntity?: (id: string) => void;
   activeTool: ViewportTool;
   activeTab: ViewportTab;
   onSelectTab: (tab: ViewportTab) => void;
@@ -51,6 +58,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
   onUpdateEntityRotation,
   onAddMeasurement,
   onOpenEvidencePlacement,
+  onRestoreOriginalEntity,
   activeTool,
   activeTab,
   onSelectTab,
@@ -74,19 +82,37 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
   selectedEntityIdRef.current = selectedEntityId;
   const activeToolRef = useRef(activeTool);
   activeToolRef.current = activeTool;
+  const onSelectEntityRef = useRef(onSelectEntity);
+  onSelectEntityRef.current = onSelectEntity;
   const onUpdateEntityPositionRef = useRef(onUpdateEntityPosition);
   onUpdateEntityPositionRef.current = onUpdateEntityPosition;
   const onUpdateEntityRotationRef = useRef(onUpdateEntityRotation);
   onUpdateEntityRotationRef.current = onUpdateEntityRotation;
-  const onOpenEvidencePlacementRef = useRef(onOpenEvidencePlacement);
-  onOpenEvidencePlacementRef.current = onOpenEvidencePlacement;
   const onAddMeasurementRef = useRef(onAddMeasurement);
   onAddMeasurementRef.current = onAddMeasurement;
-  const onSelectEntityRef = useRef(onSelectEntity);
-  onSelectEntityRef.current = onSelectEntity;
+  const onOpenEvidencePlacementRef = useRef(onOpenEvidencePlacement);
+  onOpenEvidencePlacementRef.current = onOpenEvidencePlacement;
+  const markersRef = useRef(markers);
+  markersRef.current = markers;
+  const measurementsRef = useRef(measurements);
+  measurementsRef.current = measurements;
 
+  // Direct manipulation dragging & rotation state
+  const isDirectDraggingRef = useRef(false);
+  const isDirectRotatingRef = useRef(false);
+  const dragEntityIdRef = useRef<string | null>(null);
+  const dragOffsetRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const dragPlaneYRef = useRef<number>(0);
+  const rotateStartClientXRef = useRef<number>(0);
+  const rotateStartAngleRef = useRef<number>(0);
+
+  // Viewport Telemetry State
+  const [cameraAngleInfo, setCameraAngleInfo] = useState({
+    azimuth: '45.0°',
+    elevation: '55.0°',
+    distance: '12.4m',
+  });
   const [hoveredMarker, setHoveredMarker] = useState<EvidenceMarkerItem | null>(null);
-  const [cameraAngleInfo, setCameraAngleInfo] = useState({ azimuth: '42.4°', elevation: '34.0°', distance: '16.8m' });
   const [measureStartPoint, setMeasureStartPoint] = useState<[number, number, number] | null>(null);
   const [measurementBadges, setMeasurementBadges] = useState<
     Array<{ id: string; dist: string; label: string; x: number; y: number; visible: boolean }>
@@ -100,21 +126,21 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
 
     if (targetTab === '2D Plan') {
       camera.up.set(0, 0, -1);
-      camera.position.set(0.001, 18.0, 0.001);
+      camera.position.set(0.001, 16.0, 0.001);
       controls.target.set(0, 0, 0);
       controls.maxPolarAngle = 0.05;
       controls.minPolarAngle = 0.001;
     } else if (targetTab === 'Measurements') {
       camera.up.set(0, 1, 0);
-      camera.position.set(10.5, 8.5, 11.5);
+      camera.position.set(9.5, 7.5, 10.5);
       controls.target.set(0.1, 0.8, 0.1);
-      controls.maxPolarAngle = Math.PI / 2 + 0.1;
+      controls.maxPolarAngle = Math.PI / 2 + 0.08;
       controls.minPolarAngle = 0.05;
     } else {
       camera.up.set(0, 1, 0);
-      camera.position.set(11.5, 9.5, 12.5);
-      controls.target.set(0.1, 1.2, 0.1);
-      controls.maxPolarAngle = Math.PI / 2 + 0.1;
+      camera.position.set(10.5, 8.5, 11.5);
+      controls.target.set(0.1, 1.0, 0.1);
+      controls.maxPolarAngle = Math.PI / 2 + 0.08;
       controls.minPolarAngle = 0.05;
     }
     controls.update();
@@ -129,22 +155,22 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
     const container = mountRef.current;
     if (!container) return;
 
-    let width = container.clientWidth;
-    let height = container.clientHeight;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
 
     // 1. Scene
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x020614, 0.018);
+    scene.fog = new THREE.FogExp2(0x020614, 0.015);
     sceneRef.current = scene;
 
     // 2. Camera
-    const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 100);
-    camera.position.set(11.5, 9.5, 12.5);
-    const targetPos = new THREE.Vector3(0.1, 1.2, 0.1);
+    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+    camera.position.set(10.5, 8.5, 11.5);
+    const targetPos = new THREE.Vector3(0.1, 1.0, 0.1);
     camera.lookAt(targetPos);
     cameraRef.current = camera;
 
-    // 3. WebGL Renderer
+    // 3. WebGL Renderer with ACES Tone Mapping & PCF Shadows
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -155,7 +181,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 2.0;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -164,195 +190,109 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.target.copy(targetPos);
-    controls.minDistance = 3.5;
-    controls.maxDistance = 35.0;
-    controls.maxPolarAngle = Math.PI / 2 + 0.1;
+    controls.minDistance = 3.0;
+    controls.maxDistance = 32.0;
+    controls.maxPolarAngle = Math.PI / 2 + 0.08;
     controlsRef.current = controls;
 
-    // 5. Lighting Setup
-    const ambientLight = new THREE.AmbientLight(0x0f2248, 1.4);
+    // 5. High-Fidelity Forensic Lighting
+    // A. Soft Ambient Fill
+    const ambientLight = new THREE.HemisphereLight(0x94a3b8, 0x020614, 0.95);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xbbe1fa, 2.2);
-    dirLight.position.set(8, 14, 10);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
-    scene.add(dirLight);
+    // B. Key Directional Light with soft PCF shadow casting
+    const keyLight = new THREE.DirectionalLight(0xf8fafc, 2.2);
+    keyLight.position.set(6, 12, 8);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
+    keyLight.shadow.camera.near = 0.5;
+    keyLight.shadow.camera.far = 30;
+    keyLight.shadow.camera.left = -6;
+    keyLight.shadow.camera.right = 6;
+    keyLight.shadow.camera.top = 6;
+    keyLight.shadow.camera.bottom = -6;
+    keyLight.shadow.bias = -0.0005;
+    scene.add(keyLight);
 
-    const cyanPointLight = new THREE.PointLight(0x00f0ff, 3.5, 18);
-    cyanPointLight.position.set(-2, 3.5, 2);
-    scene.add(cyanPointLight);
+    // C. Back / Rim Light for Silhouette Definition
+    const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.85);
+    rimLight.position.set(-6, 8, -6);
+    scene.add(rimLight);
 
-    const redAccentLight = new THREE.PointLight(0xff3366, 2.0, 12);
-    redAccentLight.position.set(-3, 2, 0.5);
-    scene.add(redAccentLight);
+    // D. Forensic Scan Spotlight focused on breach and evidence epicenter
+    const scanSpot = new THREE.SpotLight(0x00f0ff, 1.8, 14, Math.PI / 5, 0.45, 1.0);
+    scanSpot.position.set(-1.2, 5.0, 1.4);
+    scanSpot.target.position.set(-0.4, 0.2, 1.3);
+    scene.add(scanSpot);
+    scene.add(scanSpot.target);
 
-    // 6. Floor & Spatial Boundaries
+    // 6. Architectural Room Geometry (Floor, Walls, Skirting Baseboards, Fine Grid)
     const roomWidth = 7.0;
     const roomDepth = 6.2;
+    const roomArch = createRoomArchitecture(roomWidth, roomDepth, 3.0);
+    scene.add(roomArch);
 
-    const floorGeo = new THREE.PlaneGeometry(roomWidth, roomDepth);
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x061328,
-      roughness: 0.35,
-      metalness: 0.65,
-    });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    floor.name = 'scene-floor';
-    scene.add(floor);
+    // Floor reference mesh for raycasting
+    const floorMesh = roomArch.getObjectByName('scene-floor') as THREE.Mesh;
 
-    // Grid Overlay
-    const gridHelper = new THREE.GridHelper(roomWidth, 14, 0x00f0ff, 0x1e3a5f);
-    gridHelper.position.y = 0.005;
-    scene.add(gridHelper);
-
-    // Bounding Box Walls Wireframe
-    const boundaryGeo = new THREE.BoxGeometry(roomWidth, 3.0, roomDepth);
-    const boundaryEdges = new THREE.EdgesGeometry(boundaryGeo);
-    const boundaryMat = new THREE.LineBasicMaterial({
-      color: 0x00f0ff,
-      transparent: true,
-      opacity: 0.3,
-    });
-    const boundaryWireframe = new THREE.LineSegments(boundaryEdges, boundaryMat);
-    boundaryWireframe.position.y = 1.5;
-    scene.add(boundaryWireframe);
-
-    // Back Wall
-    const wallGeo = new THREE.PlaneGeometry(roomWidth, 3.0);
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x07152e,
-      roughness: 0.8,
-      metalness: 0.2,
-      side: THREE.DoubleSide,
-    });
-    const backWall = new THREE.Mesh(wallGeo, wallMat);
-    backWall.position.set(0, 1.5, -roomDepth / 2);
-    scene.add(backWall);
-
-    // West Breached Wall
-    const westWallGeo = new THREE.PlaneGeometry(roomDepth, 3.0);
-    const westWall = new THREE.Mesh(westWallGeo, wallMat);
-    westWall.rotation.y = Math.PI / 2;
-    westWall.position.set(-roomWidth / 2, 1.5, 0);
-    scene.add(westWall);
-
-    // 7. Dynamic Object Meshes
+    // 7. Realistic Forensic 3D Models
     const meshesMap = meshesMapRef.current;
     meshesMap.clear();
 
-    // A. Conference Table
-    const tableGroup = new THREE.Group();
-    const tableTopGeo = new THREE.BoxGeometry(2.4, 0.08, 1.2);
-    const tableTopMat = new THREE.MeshStandardMaterial({ color: 0x0f274a, roughness: 0.4, metalness: 0.5 });
-    const tableTop = new THREE.Mesh(tableTopGeo, tableTopMat);
-    tableTop.position.y = 0.76;
-    tableTop.castShadow = true;
-    tableTop.receiveShadow = true;
-    tableGroup.add(tableTop);
-
-    const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.74, 16);
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, roughness: 0.2, metalness: 0.8 });
-    [
-      [-1.0, 0.37, -0.45],
-      [1.0, 0.37, -0.45],
-      [-1.0, 0.37, 0.45],
-      [1.0, 0.37, 0.45],
-    ].forEach(([x, y, z]) => {
-      const leg = new THREE.Mesh(legGeo, legMat);
-      leg.position.set(x, y, z);
-      tableGroup.add(leg);
-    });
+    // A. Executive Conference Desk & Terminal
+    const tableGroup = createConferenceDesk();
     tableGroup.position.set(0, 0, -0.6);
-    tableGroup.name = 'ent-furn-table';
     scene.add(tableGroup);
     meshesMap.set('ent-furn-table', tableGroup);
 
-    // B. Overturned Chair
-    const chairGroup = new THREE.Group();
-    const seatGeo = new THREE.BoxGeometry(0.52, 0.08, 0.52);
-    const seatMat = new THREE.MeshStandardMaterial({ color: 0x1e3a5f, roughness: 0.5, metalness: 0.3 });
-    const seat = new THREE.Mesh(seatGeo, seatMat);
-    seat.castShadow = true;
-    chairGroup.add(seat);
-
-    const backGeo = new THREE.BoxGeometry(0.48, 0.55, 0.06);
-    const back = new THREE.Mesh(backGeo, seatMat);
-    back.position.set(0, 0.3, -0.23);
-    chairGroup.add(back);
-
-    const chairStem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.38), legMat);
-    chairStem.position.set(0, -0.2, 0);
-    chairGroup.add(chairStem);
-
+    // B. Ergonomic Task Chair (Overturned)
+    const chairGroup = createErgonomicChair();
     chairGroup.rotation.set(1.4, 0.3, 0.6);
     chairGroup.position.set(-1.9, 0.35, 0.3);
-    chairGroup.name = 'ent-furn-chair';
     scene.add(chairGroup);
     meshesMap.set('ent-furn-chair', chairGroup);
 
-    // C. Subject Alpha (Mannequin Silhouette)
-    const personGroup = new THREE.Group();
-    const torsoGeo = new THREE.CylinderGeometry(0.18, 0.14, 0.65, 16);
-    const personMat = new THREE.MeshStandardMaterial({
-      color: 0x00f0ff,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.85,
-    });
-    const torso = new THREE.Mesh(torsoGeo, personMat);
-    torso.position.y = 0.85;
-    personGroup.add(torso);
-
-    const headGeo = new THREE.SphereGeometry(0.12, 16, 16);
-    const head = new THREE.Mesh(headGeo, personMat);
-    head.position.y = 1.32;
-    personGroup.add(head);
-
-    const ringGeo = new THREE.RingGeometry(0.35, 0.38, 32);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.02;
-    personGroup.add(ring);
-
+    // C. Subject Alpha (Forensic White Mannequin with Internal Skeleton)
+    const personGroup = createHumanMannequin();
     personGroup.position.set(0.1, 0.0, 0.3);
-    personGroup.name = 'ent-person-01';
+    personGroup.rotation.y = 0.45;
     scene.add(personGroup);
     meshesMap.set('ent-person-01', personGroup);
 
-    // D. Glass Dispersion Cluster
-    const glassPointsGeo = new THREE.BufferGeometry();
-    const particleCount = 280;
-    const positions = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      const r = Math.random() * 0.9;
-      const theta = Math.random() * Math.PI * 0.8 + 0.2;
-      positions[i * 3] = -0.4 + r * Math.cos(theta);
-      positions[i * 3 + 1] = 0.02 + Math.random() * 0.05;
-      positions[i * 3 + 2] = 1.3 + r * Math.sin(theta);
-    }
-    glassPointsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const glassPointsMat = new THREE.PointsMaterial({
-      color: 0x38bdf8,
-      size: 0.04,
-      transparent: true,
-      opacity: 0.9,
-    });
-    const glassField = new THREE.Points(glassPointsGeo, glassPointsMat);
-    glassField.name = 'ent-glass-field';
+    // D. 3D Faceted Glass Dispersion Cluster
+    const glassField = createGlassDispersionCluster();
+    glassField.position.set(0, 0, 0);
     scene.add(glassField);
     meshesMap.set('ent-glass-field', glassField);
 
-    // E. Breached Window Trajectory Laser Beam
+    // E. Breached East Window Frame & Shards
+    const eastWindow = createBreachedWindow();
+    eastWindow.position.set(-roomWidth / 2 + 0.02, 1.4, 0.2);
+    eastWindow.rotation.y = Math.PI / 2;
+    scene.add(eastWindow);
+    meshesMap.set('ent-window-east', eastWindow);
+
+    // F. Architectural North Egress Door
+    const northDoor = createArchitecturalDoor();
+    northDoor.position.set(2.4, 0.0, -roomDepth / 2 + 0.02);
+    northDoor.rotation.y = Math.PI;
+    scene.add(northDoor);
+    meshesMap.set('ent-door-north', northDoor);
+
+    // G. Spent 9x19mm Brass Casing
+    const spentCasing = createSpentCasing();
+    spentCasing.position.set(1.1, 0.015, 0.5);
+    spentCasing.rotation.y = 0.7;
+    scene.add(spentCasing);
+    meshesMap.set('ent-obj-casing', spentCasing);
+
+    // H. Ballistic Trajectory Laser Beam
     const laserCurve = new THREE.LineCurve3(
-      new THREE.Vector3(-3.0, 1.4, 0.2),
+      new THREE.Vector3(-roomWidth / 2, 1.4, 0.2),
       new THREE.Vector3(-0.4, 0.15, 1.3)
     );
-    const laserGeo = new THREE.TubeGeometry(laserCurve, 32, 0.015, 8, false);
+    const laserGeo = new THREE.TubeGeometry(laserCurve, 32, 0.014, 8, false);
     const laserMat = new THREE.MeshBasicMaterial({
       color: 0xff3366,
       transparent: true,
@@ -369,103 +309,64 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
     impactCone.rotation.z = Math.PI;
     scene.add(impactCone);
 
-    // F. Evidence Marker Cones Group
+    // I. Evidence Marker Cones Group
     scene.add(markerGroupRef.current);
 
-    // G. Measurements Group
+    // J. Measurements Group
     scene.add(measureGroupRef.current);
 
-    // H. Measurement Start Point Pin Indicator
+    // K. Measurement Start Point Pin Indicator
     const pinGeo = new THREE.SphereGeometry(0.08, 16, 16);
     const pinMat = new THREE.MeshStandardMaterial({
       color: 0x00f0ff,
       emissive: 0x00f0ff,
-      emissiveIntensity: 0.8,
+      emissiveIntensity: 0.6,
+      roughness: 0.2,
     });
-    const measureStartPin = new THREE.Mesh(pinGeo, pinMat);
-    measureStartPin.visible = false;
-    scene.add(measureStartPin);
-    measureStartPinRef.current = measureStartPin;
+    const pinMesh = new THREE.Mesh(pinGeo, pinMat);
+    pinMesh.visible = false;
+    scene.add(pinMesh);
+    measureStartPinRef.current = pinMesh;
 
-    // I. Convincing Forensic LiDAR Point Cloud Simulation
-    const cloudPoints: number[] = [];
-    const cloudColors: number[] = [];
+    // L. Subtle Selection Box Helper
+    const boxHelper = new THREE.BoxHelper(tableGroup, 0x00f0ff);
+    boxHelper.visible = false;
+    scene.add(boxHelper);
+    boxHelperRef.current = boxHelper;
 
-    // 1. Dense Floor Scan points
-    for (let x = -roomWidth / 2; x <= roomWidth / 2; x += 0.09) {
-      for (let z = -roomDepth / 2; z <= roomDepth / 2; z += 0.09) {
-        cloudPoints.push(x, 0.01 + (Math.random() - 0.5) * 0.008, z);
-        cloudColors.push(0.05, 0.42, 0.82);
-      }
+    // M. Synthetic LiDAR Point Cloud (for Point Cloud Tab)
+    const lidarPointCount = 8500;
+    const lidarPositions = new Float32Array(lidarPointCount * 3);
+    const lidarColors = new Float32Array(lidarPointCount * 3);
+    for (let i = 0; i < lidarPointCount; i++) {
+      const px = (Math.random() - 0.5) * roomWidth;
+      const py = Math.random() * 2.8;
+      const pz = (Math.random() - 0.5) * roomDepth;
+      lidarPositions[i * 3] = px;
+      lidarPositions[i * 3 + 1] = py;
+      lidarPositions[i * 3 + 2] = pz;
+      lidarColors[i * 3] = 0.0;
+      lidarColors[i * 3 + 1] = 0.6 + (py / 2.8) * 0.4;
+      lidarColors[i * 3 + 2] = 1.0;
     }
-
-    // 2. Wall Scan vertical points
-    for (let y = 0; y <= 2.8; y += 0.12) {
-      for (let x = -roomWidth / 2; x <= roomWidth / 2; x += 0.12) {
-        cloudPoints.push(x, y, -roomDepth / 2);
-        cloudColors.push(0.08, 0.55 + y * 0.12, 0.92);
-      }
-      for (let z = -roomDepth / 2; z <= roomDepth / 2; z += 0.12) {
-        cloudPoints.push(-roomWidth / 2, y, z);
-        cloudColors.push(0.18, 0.68, 0.98);
-        cloudPoints.push(roomWidth / 2, y, z);
-        cloudColors.push(0.08, 0.52, 0.85);
-      }
-    }
-
-    // 3. Conference Table points
-    for (let x = -1.2; x <= 1.2; x += 0.05) {
-      for (let z = -1.2; z <= 0.0; z += 0.05) {
-        cloudPoints.push(x, 0.76, z);
-        cloudColors.push(0.0, 0.95, 1.0); // Cyan table surface
-      }
-    }
-
-    // 4. Overturned Chair points
-    for (let x = -2.15; x <= -1.65; x += 0.04) {
-      for (let z = 0.05; z <= 0.55; z += 0.04) {
-        for (let y = 0.15; y <= 0.75; y += 0.08) {
-          cloudPoints.push(x, y, z);
-          cloudColors.push(0.25, 0.78, 0.98);
-        }
-      }
-    }
-
-    // 5. Subject Alpha silhouette points
-    for (let y = 0; y <= 1.5; y += 0.06) {
-      const r = 0.18 * (1 - y / 2.3);
-      for (let a = 0; a < Math.PI * 2; a += 0.4) {
-        cloudPoints.push(0.1 + r * Math.cos(a), y, 0.3 + r * Math.sin(a));
-        cloudColors.push(0.0, 0.95, 1.0);
-      }
-    }
-
-    // 6. Glass & Ballistic cone dispersion points
-    for (let i = 0; i < 500; i++) {
-      const r = Math.random() * 1.5;
-      const theta = Math.random() * Math.PI * 0.9;
-      cloudPoints.push(-0.4 + r * Math.cos(theta), 0.02 + Math.random() * 0.1, 1.3 + r * Math.sin(theta));
-      cloudColors.push(1.0, 0.25, 0.45); // Ballistic impact red/magenta
-    }
-
     const lidarCloudGeo = new THREE.BufferGeometry();
-    lidarCloudGeo.setAttribute('position', new THREE.Float32BufferAttribute(cloudPoints, 3));
-    lidarCloudGeo.setAttribute('color', new THREE.Float32BufferAttribute(cloudColors, 3));
+    lidarCloudGeo.setAttribute('position', new THREE.BufferAttribute(lidarPositions, 3));
+    lidarCloudGeo.setAttribute('color', new THREE.BufferAttribute(lidarColors, 3));
     const lidarCloudMat = new THREE.PointsMaterial({
-      size: 0.028,
+      size: 0.024,
       vertexColors: true,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.75,
     });
     const lidarCloud = new THREE.Points(lidarCloudGeo, lidarCloudMat);
     lidarCloud.visible = activeTab === 'Point Cloud';
     scene.add(lidarCloud);
     lidarCloudRef.current = lidarCloud;
 
-    // J. TransformControls (Move & Rotate gizmos)
+    // N. TransformControls (Auxiliary Gizmo)
     const transformControls = new TransformControls(camera, renderer.domElement);
-    transformControls.size = 0.8;
-    scene.add(transformControls);
+    transformControls.size = 0.75;
+    scene.add(transformControls.getHelper());
     transformControlsRef.current = transformControls;
 
     transformControls.addEventListener('dragging-changed', (e) => {
@@ -485,36 +386,27 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
           parseFloat(mesh.position.z.toFixed(2)),
         ]);
       } else if (activeToolRef.current === 'rotate') {
-        onUpdateEntityRotationRef.current?.(targetId, mesh.rotation.y, [
-          parseFloat(mesh.rotation.x.toFixed(2)),
-          parseFloat(mesh.rotation.y.toFixed(2)),
-          parseFloat(mesh.rotation.z.toFixed(2)),
-        ]);
+        onUpdateEntityRotationRef.current?.(targetId, parseFloat(mesh.rotation.y.toFixed(2)));
       }
     });
 
-    // K. Selection Box Highlight
-    const boxHelper = new THREE.BoxHelper(new THREE.Mesh(), 0x00f0ff);
-    boxHelper.visible = false;
-    scene.add(boxHelper);
-    boxHelperRef.current = boxHelper;
-
-    // 8. Raycasting and Pointer Interactions
+    // 8. Natural Ground-Aware Drag-and-Move & Pointer Interaction
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     let pointerDownPos = { x: 0, y: 0 };
+    const floorDragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const planeIntersectPoint = new THREE.Vector3();
+
+    const getTopEntityMesh = (hitObject: THREE.Object3D): THREE.Object3D | null => {
+      let curr: THREE.Object3D | null = hitObject;
+      while (curr && !curr.name && curr.parent) {
+        curr = curr.parent;
+      }
+      return curr && curr.name && meshesMapRef.current.has(curr.name) ? curr : null;
+    };
 
     const handlePointerDown = (event: MouseEvent) => {
       pointerDownPos = { x: event.clientX, y: event.clientY };
-    };
-
-    const handlePointerUp = (event: MouseEvent) => {
-      const dx = Math.abs(event.clientX - pointerDownPos.x);
-      const dy = Math.abs(event.clientY - pointerDownPos.y);
-      // Ignore if user was orbiting camera or dragging gizmo
-      if (dx > 5 || dy > 5) return;
-      if (transformControlsRef.current?.dragging) return;
-
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -523,9 +415,144 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
 
       const tool = activeToolRef.current;
 
+      // TOOL: MOVE -> Direct Natural Grab and Move along Floor
+      if (tool === 'move') {
+        const objectsToTest = Array.from(meshesMapRef.current.values());
+        const hits = raycaster.intersectObjects(objectsToTest, true);
+
+        if (hits.length > 0) {
+          const topMesh = getTopEntityMesh(hits[0].object);
+          if (topMesh && topMesh.name !== 'ent-env-room' && topMesh.name !== 'ent-window-east' && topMesh.name !== 'ent-door-north') {
+            isDirectDraggingRef.current = true;
+            dragEntityIdRef.current = topMesh.name;
+            onSelectEntityRef.current(topMesh.name);
+            controls.enabled = false;
+
+            // Intersect virtual horizontal floor plane at object's base
+            floorDragPlane.constant = -topMesh.position.y;
+            if (raycaster.ray.intersectPlane(floorDragPlane, planeIntersectPoint)) {
+              dragOffsetRef.current.subVectors(topMesh.position, planeIntersectPoint);
+            }
+            dragPlaneYRef.current = topMesh.position.y;
+            return;
+          }
+        }
+      }
+
+      // TOOL: ROTATE -> Natural Horizontal Yaw Rotation
+      if (tool === 'rotate') {
+        const objectsToTest = Array.from(meshesMapRef.current.values());
+        const hits = raycaster.intersectObjects(objectsToTest, true);
+
+        if (hits.length > 0) {
+          const topMesh = getTopEntityMesh(hits[0].object);
+          if (topMesh) {
+            isDirectRotatingRef.current = true;
+            dragEntityIdRef.current = topMesh.name;
+            onSelectEntityRef.current(topMesh.name);
+            controls.enabled = false;
+            rotateStartClientXRef.current = event.clientX;
+            rotateStartAngleRef.current = topMesh.rotation.y;
+            return;
+          }
+        }
+      }
+    };
+
+    const handlePointerMove = (event: MouseEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      // 1. Natural Floor Drag
+      if (isDirectDraggingRef.current && dragEntityIdRef.current) {
+        const mesh = meshesMapRef.current.get(dragEntityIdRef.current);
+        if (mesh) {
+          if (event.shiftKey) {
+            // Shift + Drag: Vertical elevation along Y axis
+            const camDir = new THREE.Vector3();
+            camera.getWorldDirection(camDir);
+            const verticalPlane = new THREE.Plane();
+            verticalPlane.setFromNormalAndCoplanarPoint(camDir, mesh.position);
+            if (raycaster.ray.intersectPlane(verticalPlane, planeIntersectPoint)) {
+              mesh.position.y = Math.max(0.02, Math.min(2.5, planeIntersectPoint.y));
+            }
+          } else {
+            // Normal Drag: Ground-aware movement clamped to room floor
+            floorDragPlane.constant = -dragPlaneYRef.current;
+            if (raycaster.ray.intersectPlane(floorDragPlane, planeIntersectPoint)) {
+              const newX = planeIntersectPoint.x + dragOffsetRef.current.x;
+              const newZ = planeIntersectPoint.z + dragOffsetRef.current.z;
+              mesh.position.x = THREE.MathUtils.clamp(newX, -3.1, 3.1);
+              mesh.position.z = THREE.MathUtils.clamp(newZ, -2.8, 2.8);
+            }
+          }
+          if (boxHelperRef.current) {
+            boxHelperRef.current.setFromObject(mesh);
+          }
+        }
+        return;
+      }
+
+      // 2. Natural Rotation
+      if (isDirectRotatingRef.current && dragEntityIdRef.current) {
+        const mesh = meshesMapRef.current.get(dragEntityIdRef.current);
+        if (mesh) {
+          const deltaX = event.clientX - rotateStartClientXRef.current;
+          mesh.rotation.y = rotateStartAngleRef.current + deltaX * 0.015;
+          if (boxHelperRef.current) {
+            boxHelperRef.current.setFromObject(mesh);
+          }
+        }
+        return;
+      }
+    };
+
+    const handlePointerUp = (event: MouseEvent) => {
+      // If was dragging object, commit position
+      if (isDirectDraggingRef.current && dragEntityIdRef.current) {
+        const mesh = meshesMapRef.current.get(dragEntityIdRef.current);
+        if (mesh) {
+          onUpdateEntityPositionRef.current?.(dragEntityIdRef.current, [
+            parseFloat(mesh.position.x.toFixed(2)),
+            parseFloat(mesh.position.y.toFixed(2)),
+            parseFloat(mesh.position.z.toFixed(2)),
+          ]);
+        }
+        isDirectDraggingRef.current = false;
+        dragEntityIdRef.current = null;
+        controls.enabled = true;
+        return;
+      }
+
+      // If was rotating object, commit rotation
+      if (isDirectRotatingRef.current && dragEntityIdRef.current) {
+        const mesh = meshesMapRef.current.get(dragEntityIdRef.current);
+        if (mesh) {
+          onUpdateEntityRotationRef.current?.(dragEntityIdRef.current, parseFloat(mesh.rotation.y.toFixed(2)));
+        }
+        isDirectRotatingRef.current = false;
+        dragEntityIdRef.current = null;
+        controls.enabled = true;
+        return;
+      }
+
+      const dx = Math.abs(event.clientX - pointerDownPos.x);
+      const dy = Math.abs(event.clientY - pointerDownPos.y);
+      if (dx > 6 || dy > 6) return;
+      if (transformControlsRef.current?.dragging) return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      const tool = activeToolRef.current;
+
       // TOOL: MEASURE
       if (tool === 'measure') {
-        const testTargets = [floor, ...Array.from(meshesMapRef.current.values())];
+        const testTargets = [floorMesh, ...Array.from(meshesMapRef.current.values())];
         const hits = raycaster.intersectObjects(testTargets, true);
         if (hits.length > 0) {
           const pt = hits[0].point;
@@ -555,7 +582,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
 
       // TOOL: EVIDENCE
       if (tool === 'evidence') {
-        const testTargets = [floor, ...Array.from(meshesMapRef.current.values())];
+        const testTargets = [floorMesh, ...Array.from(meshesMapRef.current.values())];
         const hits = raycaster.intersectObjects(testTargets, true);
         if (hits.length > 0) {
           const pt = hits[0].point;
@@ -582,40 +609,36 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
       const objectsToTest = Array.from(meshesMapRef.current.values());
       const objectIntersects = raycaster.intersectObjects(objectsToTest, true);
       if (objectIntersects.length > 0) {
-        let topObj: THREE.Object3D | null = objectIntersects[0].object;
-        while (topObj && !topObj.name && topObj.parent) {
-          topObj = topObj.parent;
-        }
-        if (topObj && topObj.name) {
-          onSelectEntityRef.current?.(topObj.name);
+        const topMesh = getTopEntityMesh(objectIntersects[0].object);
+        if (topMesh && topMesh.name) {
+          onSelectEntityRef.current(topMesh.name);
           return;
         }
       }
 
-      // Clicked on empty space while in select tool
+      // Clicked on empty floor or space while in select tool
       if (tool === 'select') {
-        onSelectEntityRef.current?.(null);
+        onSelectEntityRef.current(null);
       }
     };
 
     renderer.domElement.addEventListener('pointerdown', handlePointerDown);
-    renderer.domElement.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
 
     // 9. Render Loop
     let animationFrameId: number;
-    const clock = new THREE.Clock();
-    let frameCount = 0;
+    let clock = 0;
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      const elapsedTime = clock.getElapsedTime();
-      frameCount++;
+      clock += 0.016;
 
-      // Gentle pulsating glow for evidence cones
+      // Gentle floating glow for evidence markers
       markerGroupRef.current.children.forEach((mesh, idx) => {
-        if (markers[idx]) {
-          mesh.position.y = markers[idx].coordinates[1] + Math.sin(elapsedTime * 2.5 + idx) * 0.02;
-          mesh.rotation.y = elapsedTime * 0.8;
+        if (markersRef.current[idx]) {
+          mesh.position.y = markersRef.current[idx].coordinates[1] + Math.sin(clock * 2.5 + idx) * 0.02;
+          mesh.rotation.y = clock * 0.8;
         }
       });
 
@@ -630,25 +653,24 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
         });
       }
 
-      // Update Measurement Screen Pos Badges (every 2 frames for smooth performance)
-      if (frameCount % 2 === 0 && cameraRef.current && container) {
-        const w = container.clientWidth;
-        const h = container.clientHeight;
-        const badges = measurements.map((m) => {
-          const midX = (m.fromCoord[0] + m.toCoord[0]) / 2;
-          const midY = (m.fromCoord[1] + m.toCoord[1]) / 2 + 0.12;
-          const midZ = (m.fromCoord[2] + m.toCoord[2]) / 2;
-          const v = new THREE.Vector3(midX, midY, midZ).project(camera);
-          const isVisible = v.z < 1 && v.x >= -1.1 && v.x <= 1.1 && v.y >= -1.1 && v.y <= 1.1;
-          const sx = ((v.x + 1) / 2) * w;
-          const sy = ((-v.y + 1) / 2) * h;
+      // Project 3D Measurement Midpoints to 2D Screen Badges
+      if (cameraRef.current && measurementsRef.current.length > 0) {
+        const halfW = renderer.domElement.clientWidth / 2;
+        const halfH = renderer.domElement.clientHeight / 2;
+        const badges = measurementsRef.current.map((m) => {
+          const midPoint = new THREE.Vector3(
+            (m.fromCoord[0] + m.toCoord[0]) / 2,
+            (m.fromCoord[1] + m.toCoord[1]) / 2 + 0.15,
+            (m.fromCoord[2] + m.toCoord[2]) / 2
+          );
+          midPoint.project(cameraRef.current!);
           return {
             id: m.id,
-            dist: `${m.distanceMeters.toFixed(2)} m`,
+            dist: `${m.distanceMeters.toFixed(2)}m`,
             label: m.label,
-            x: sx,
-            y: sy,
-            visible: isVisible,
+            x: midPoint.x * halfW + halfW,
+            y: -(midPoint.y * halfH) + halfH,
+            visible: midPoint.z < 1.0,
           };
         });
         setMeasurementBadges(badges);
@@ -657,25 +679,28 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
       controls.update();
       renderer.render(scene, camera);
     };
+
     animate();
 
-    // 10. Resize Observer
+    // 10. Resize handler
     const handleResize = () => {
-      if (!container) return;
-      width = container.clientWidth;
-      height = container.clientHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
+      if (!mountRef.current || !rendererRef.current || !cameraRef.current) return;
+      const w = mountRef.current.clientWidth;
+      const h = mountRef.current.clientHeight;
+      cameraRef.current.aspect = w / h;
+      cameraRef.current.updateProjectionMatrix();
+      rendererRef.current.setSize(w, h);
     };
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
-      renderer.domElement.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
       cancelAnimationFrame(animationFrameId);
       if (transformControlsRef.current) {
+        scene.remove(transformControlsRef.current.getHelper());
         transformControlsRef.current.dispose();
       }
       if (renderer.domElement.parentElement) {
@@ -685,7 +710,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
     };
   }, []);
 
-  // Update object positions when entities state updates
+  // Synchronize dynamic entity positions from centralized state
   useEffect(() => {
     entities.forEach((ent) => {
       const mesh = meshesMapRef.current.get(ent.id);
@@ -705,11 +730,17 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
     }
   }, [entities, selectedEntityId]);
 
-  // Synchronize TransformControls and BoxHelper with activeTool & selectedEntityId
+  // Synchronize TransformControls, BoxHelper & Mannequin Highlight with activeTool & selectedEntityId
   useEffect(() => {
     const tc = transformControlsRef.current;
     const box = boxHelperRef.current;
     if (!tc || !box) return;
+
+    // Toggle Mannequin skeleton outline highlight
+    const mannequinMesh = meshesMapRef.current.get('ent-person-01') as MannequinModel | undefined;
+    if (mannequinMesh && mannequinMesh.setHighlighted) {
+      mannequinMesh.setHighlighted(selectedEntityId === 'ent-person-01');
+    }
 
     if (!selectedEntityId) {
       tc.detach();
@@ -749,56 +780,63 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
       group.remove(group.children[0]);
     }
 
-    const typeColors: Record<string, number> = {
-      Evidence: 0x00f0ff,
-      Damage: 0xef4444,
-      Person: 0x38bdf8,
-      Object: 0xa855f7,
-      Measurement: 0xfacc15,
-      Unknown: 0x94a3b8,
-    };
+    markers.forEach((marker) => {
+      const coneGroup = new THREE.Group();
+      coneGroup.position.set(marker.coordinates[0], marker.coordinates[1], marker.coordinates[2]);
 
-    markers.forEach((m) => {
-      const coneGeo = new THREE.ConeGeometry(0.12, 0.28, 16);
-      const colorHex = typeColors[m.markerType || m.type] || 0x00f0ff;
+      const coneGeo = new THREE.ConeGeometry(0.09, 0.28, 16);
       const coneMat = new THREE.MeshStandardMaterial({
-        color: colorHex,
-        emissive: colorHex,
-        emissiveIntensity: 0.35,
+        color: 0x00f0ff,
+        emissive: 0x00f0ff,
+        emissiveIntensity: 0.55,
         roughness: 0.2,
         metalness: 0.8,
       });
       const cone = new THREE.Mesh(coneGeo, coneMat);
-      cone.position.set(m.coordinates[0], m.coordinates[1], m.coordinates[2]);
+      cone.rotation.x = Math.PI;
       cone.castShadow = true;
-      cone.userData = { markerData: m };
-      group.add(cone);
+      coneGroup.add(cone);
+
+      const beaconGeo = new THREE.RingGeometry(0.18, 0.22, 24);
+      const beaconMat = new THREE.MeshBasicMaterial({
+        color: 0x00f0ff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.7,
+      });
+      const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+      beacon.rotation.x = -Math.PI / 2;
+      beacon.position.y = -0.14;
+      coneGroup.add(beacon);
+
+      coneGroup.userData = { markerData: marker };
+      cone.userData = { markerData: marker };
+      group.add(coneGroup);
     });
   }, [markers]);
 
-  // Synchronize Measurements in 3D scene
+  // Synchronize 3D Measurement Lines in Scene
   useEffect(() => {
     const group = measureGroupRef.current;
     while (group.children.length > 0) {
       group.remove(group.children[0]);
     }
 
-    measurements.forEach((meas) => {
-      const pA = new THREE.Vector3(...meas.fromCoord);
-      const pB = new THREE.Vector3(...meas.toCoord);
+    measurements.forEach((m) => {
+      const pA = new THREE.Vector3(m.fromCoord[0], m.fromCoord[1], m.fromCoord[2]);
+      const pB = new THREE.Vector3(m.toCoord[0], m.toCoord[1], m.toCoord[2]);
 
-      // Line
       const lineGeo = new THREE.BufferGeometry().setFromPoints([pA, pB]);
       const lineMat = new THREE.LineDashedMaterial({
-        color: activeTab === 'Measurements' ? 0x00f0ff : 0x38bdf8,
-        dashSize: 0.14,
+        color: 0x00f0ff,
+        dashSize: 0.15,
         gapSize: 0.08,
+        linewidth: 2,
       });
       const line = new THREE.Line(lineGeo, lineMat);
       line.computeLineDistances();
       group.add(line);
 
-      // Spheres at endpoints
       const nodeGeo = new THREE.SphereGeometry(0.045, 12, 12);
       const nodeMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
       const nodeA = new THREE.Mesh(nodeGeo, nodeMat);
@@ -823,11 +861,10 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
           if (activeTab === 'Point Cloud') {
             child.material.wireframe = true;
             child.material.transparent = true;
-            child.material.opacity = 0.35;
+            child.material.opacity = 0.3;
           } else {
-            child.material.wireframe = child.name === 'ent-person-01';
-            child.material.transparent = false;
-            child.material.opacity = 1.0;
+            child.material.wireframe = false;
+            child.material.transparent = child.name.includes('glass') || child.name.includes('window');
           }
         }
       });
@@ -858,6 +895,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
         height: '100%',
         overflow: 'hidden',
         background: 'radial-gradient(ellipse at 50% 50%, #061530 0%, #020612 80%)',
+        cursor: activeTool === 'move' ? 'grab' : activeTool === 'rotate' ? 'ew-resize' : 'default',
       }}
     >
       {/* 1. Top Tabs Bar */}
@@ -1071,7 +1109,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
         </div>
       )}
 
-      {/* 5. Selected Entity HUD Overlay */}
+      {/* 5. Selected Entity HUD Overlay with RESTORE ORIGINAL Action */}
       {selectedEntity && (
         <div style={{
           position: 'absolute',
@@ -1083,8 +1121,8 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
           border: '1.5px solid #00f0ff',
           borderRadius: '8px',
           padding: '12px 16px',
-          minWidth: '280px',
-          maxWidth: '360px',
+          minWidth: '290px',
+          maxWidth: '380px',
           boxShadow: '0 12px 30px rgba(0,0,0,0.8), 0 0 20px rgba(0,240,255,0.25)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -1116,7 +1154,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
           </div>
 
           <div style={{
-            fontSize: '13px',
+            fontSize: '13.5px',
             fontWeight: 700,
             color: '#ffffff',
             marginBottom: '4px',
@@ -1139,6 +1177,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
             </span>
           </div>
 
+          {/* Direct Manipulation Instruction Hint */}
           <div style={{
             fontSize: '10px',
             fontFamily: 'var(--font-mono, monospace)',
@@ -1146,14 +1185,51 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
             background: 'rgba(0, 240, 255, 0.08)',
             border: '1px solid rgba(0, 240, 255, 0.2)',
             borderRadius: '4px',
-            padding: '4px 8px',
+            padding: '5px 8px',
+            marginBottom: '8px',
+            lineHeight: 1.4,
           }}>
-            {activeTool === 'move' && 'MOVE TOOL ACTIVE: Drag 3D arrows to translate entity.'}
-            {activeTool === 'rotate' && 'ROTATE TOOL ACTIVE: Drag circular ring to orient entity.'}
-            {activeTool === 'select' && 'SELECT ACTIVE: Switch to Move or Rotate tool to adjust coordinates.'}
+            {activeTool === 'move' && 'MOVE ACTIVE: Click & drag object across the floor. Hold Shift for vertical elevation.'}
+            {activeTool === 'rotate' && 'ROTATE ACTIVE: Click & drag horizontally to pivot entity heading.'}
+            {activeTool === 'select' && 'SELECT ACTIVE: Switch to Move or Rotate tool to reposition.'}
             {activeTool === 'measure' && 'MEASURE ACTIVE: Click two points to measure distance.'}
             {activeTool === 'evidence' && 'EVIDENCE ACTIVE: Click in scene to place marker.'}
           </div>
+
+          {/* RESTORE ORIGINAL BUTTON */}
+          {onRestoreOriginalEntity && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '4px' }}>
+              <button
+                onClick={() => onRestoreOriginalEntity(selectedEntity.id)}
+                title="Return only this entity to its calibrated original baseline"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '5px 12px',
+                  borderRadius: '4px',
+                  background: 'rgba(0, 240, 255, 0.15)',
+                  border: '1px solid #00f0ff',
+                  color: '#00f0ff',
+                  fontSize: '10.5px',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 0 8px rgba(0, 240, 255, 0.25)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 240, 255, 0.25)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 240, 255, 0.15)';
+                }}
+              >
+                <RotateCcw size={11} />
+                <span>RESTORE ORIGINAL</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1162,7 +1238,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
         <div style={{
           position: 'absolute',
           bottom: '24px',
-          left: selectedEntity ? '390px' : '20px',
+          left: selectedEntity ? '420px' : '20px',
           zIndex: 30,
           background: 'rgba(6, 18, 42, 0.95)',
           backdropFilter: 'blur(10px)',
@@ -1228,7 +1304,7 @@ export const SceneViewer: React.FC<SceneViewerProps> = ({
         <span style={{ color: '#475569' }}>|</span>
         <span>TOOL: <span style={{ color: '#00f0ff', textTransform: 'uppercase' }}>{activeTool}</span></span>
         <span style={{ color: '#475569' }}>|</span>
-        <span>CLICK OBJECT TO INSPECT</span>
+        <span>GROUND-AWARE DRAG ACTIVE</span>
       </div>
     </div>
   );

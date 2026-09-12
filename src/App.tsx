@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { HomePage } from './components/HomePage';
 import { InvestigationPage } from './components/investigation/InvestigationPage';
 import type { NavigationTab, CaseOption } from './types';
+import { api } from './services/api';
 import './index.css';
 
 const DEFAULT_CASES: CaseOption[] = [
@@ -13,8 +14,30 @@ const DEFAULT_CASES: CaseOption[] = [
 
 function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('Home');
-  const [cases] = useState<CaseOption[]>(DEFAULT_CASES);
+  const [cases, setCases] = useState<CaseOption[]>(DEFAULT_CASES);
   const [selectedCase, setSelectedCase] = useState<CaseOption>(DEFAULT_CASES[0]);
+
+  useEffect(() => {
+    let isMounted = true;
+    api.getCases().then((backendCases) => {
+      if (isMounted && backendCases && backendCases.length > 0) {
+        const mappedCases: CaseOption[] = backendCases.map((c) => ({
+          id: c.id,
+          title: `Case #${c.case_number.replace(/^CASE-/, '')}`,
+          status: c.status === 'ACTIVE' ? 'Active Scene' : c.status === 'IN_REVIEW' ? 'In Review' : 'Archived',
+          date: c.created_at ? c.created_at.substring(0, 10).replace(/-/g, '.') : '2026.09.08',
+        }));
+        setCases(mappedCases);
+        setSelectedCase((prev) => mappedCases.find((c) => c.id === prev.id) || mappedCases[0]);
+      }
+    }).catch((err) => {
+      console.warn('API getCases fallback to local defaults:', err);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
 
   const handleOpenSettings = () => {
     alert(

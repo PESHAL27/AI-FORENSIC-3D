@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Layers,
   Sliders,
@@ -26,8 +26,10 @@ import { DeleteEvidenceDialog } from './DeleteEvidenceDialog';
 import { AddMarkerModal } from './AddMarkerModal';
 import { ResetConfirmDialog } from './ResetConfirmDialog';
 
+import { api } from '../../services/api';
 import { evidenceService } from '../../services/evidenceService';
 import { validateEvidenceFile } from '../../utils/fileValidation';
+
 
 import {
   INITIAL_DETECTED_ENTITIES,
@@ -79,6 +81,15 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
   const [uploadProgress, setUploadProgress] = useState<EvidenceUploadProgress | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  // AI Scene Understanding states
+  const [analyzingEvidenceId, setAnalyzingEvidenceId] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [activeAnalysisEvidenceId, setActiveAnalysisEvidenceId] = useState<string | null>(null);
+
+  // Autosave State
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveTimeoutRef = useRef<any>(null);
+  const isInitialLoadRef = useRef<boolean>(true);
 
   // 2. Scene & Entities State (Centralized Scene State Architecture)
   const [detectedEntities, setDetectedEntities] = useState<DetectedEntity[]>(INITIAL_DETECTED_ENTITIES);
@@ -115,18 +126,91 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
   // Current selected scenario object
   const currentScenario = scenarios.find((s) => s.id === selectedScenarioId) || scenarios[0];
 
-  // Load evidence for the active case from evidenceService
+  // Load evidence, 3D scene, markers, and measurements for the active case from backend
   useEffect(() => {
     let isMounted = true;
+    isInitialLoadRef.current = true;
+
+    // 1. Evidence
     evidenceService.getCaseEvidence(caseId).then((items) => {
       if (isMounted) {
         setCaseEvidence(items);
+        // Automatically select analyzed evidence or first image for AI view
+        const analyzed = items.find((e) => e.analysis?.status === 'COMPLETED');
+        if (analyzed) {
+          setActiveAnalysisEvidenceId(analyzed.id);
+        } else {
+          const firstImg = items.find((e) => e.type === 'image' || e.type === '360-image');
+          if (firstImg) setActiveAnalysisEvidenceId(firstImg.id);
+        }
       }
     });
+
+    // 2. Scene & Objects
+    api.getScene(caseId).then((scene) => {
+      if (isMounted && scene && scene.objects && scene.objects.length > 0) {
+        setDetectedEntities((prev) =>
+          prev.map((ent) => {
+            const matched = scene.objects.find((o) => o.id === ent.id);
+            if (matched) {
+              const origPos: [number, number, number] = [matched.original_position.x, matched.original_position.y, matched.original_position.z];
+              const curPos: [number, number, number] = [matched.current_position.x, matched.current_position.y, matched.current_position.z];
+              const origRot: [number, number, number] = [matched.original_rotation.x, matched.original_rotation.y, matched.original_rotation.z];
+              const curRot: [number, number, number] = [matched.current_rotation.x, matched.current_rotation.y, matched.current_rotation.z];
+              return {
+                ...ent,
+                originalPosition: origPos,
+                currentPosition: curPos,
+                position: curPos,
+                originalRotation: origRot,
+                currentRotation: curRot,
+                rotation: curRot,
+              };
+            }
+            return ent;
+          })
+        );
+      }
+      setTimeout(() => {
+        isInitialLoadRef.current = false;
+      }, 500);
+    }).catch((err) => {
+      console.warn('Could not load scene from API, using defaults:', err);
+      isInitialLoadRef.current = false;
+    });
+
+    // 3. Markers
+    evidenceService.getCaseMarkers(caseId).then((mList) => {
+      if (isMounted && mList && mList.length > 0) {
+        setMarkers(mList);
+      }
+    }).catch((err) => {
+      console.warn('Could not load markers from API:', err);
+    });
+
+    // 4. Measurements
+    api.getMeasurements(caseId).then((mList) => {
+      if (isMounted && mList && mList.length > 0) {
+        setMeasurements(mList.map((m) => ({
+          id: m.id,
+          label: m.label,
+          fromName: m.label.split(' to ')[0] || 'Point A',
+          toName: m.label.split(' to ')[1] || 'Point B',
+          fromCoord: [m.point_a.x, m.point_a.y, m.point_a.z],
+          toCoord: [m.point_b.x, m.point_b.y, m.point_b.z],
+          distanceMeters: m.distance,
+        })));
+      }
+    }).catch((err) => {
+      console.warn('Could not load measurements from API:', err);
+    });
+
     return () => {
       isMounted = false;
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, [caseId]);
+
 
   // Simulation Playback Loop
   useEffect(() => {
@@ -206,32 +290,168 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
     );
   };
 
+  const triggerDebouncedAutosave = (entitiesToSave: DetectedEntity[]) => {
+    if (isInitialLoadRef.current) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+    setSaveStatus('saving');
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await api.saveScene(caseId, {
+          objects: entitiesToSave.map((ent) => ({
+            id: ent.id,
+            name: ent.name,
+            type: ent.type,
+            original_position: {
+              x: ent.originalPosition ? ent.originalPosition[0] : ent.position[0],
+              y: ent.originalPosition ? ent.originalPosition[1] : ent.position[1],
+              z: ent.originalPosition ? ent.originalPosition[2] : ent.position[2],
+            },
+            current_position: {
+              x: ent.position[0],
+              y: ent.position[1],
+              z: ent.position[2],
+            },
+            original_rotation: {
+              x: ent.originalRotation ? ent.originalRotation[0] : ent.rotation[0],
+              y: ent.originalRotation ? ent.originalRotation[1] : ent.rotation[1],
+              z: ent.originalRotation ? ent.originalRotation[2] : ent.rotation[2],
+            },
+            current_rotation: {
+              x: ent.rotation[0],
+              y: ent.rotation[1],
+              z: ent.rotation[2],
+            },
+            scale: {
+              x: ent.scale[0],
+              y: ent.scale[1],
+              z: ent.scale[2],
+            },
+            metadata: {
+              category: ent.category,
+              confidence: ent.confidence,
+            },
+          })),
+        });
+        setSaveStatus('saved');
+        setTimeout(() => {
+          setSaveStatus((prev) => (prev === 'saved' ? 'idle' : prev));
+        }, 2500);
+      } catch (err) {
+        console.error('Debounced autosave failed:', err);
+        setSaveStatus('error');
+      }
+    }, 800);
+  };
+
   const handleUpdateEntityPosition = (id: string, newPos: [number, number, number]) => {
-    setDetectedEntities((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, position: newPos } : e))
+    setDetectedEntities((prev) => {
+      const updated = prev.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              position: newPos,
+              currentPosition: newPos,
+            }
+          : e
+      );
+      triggerDebouncedAutosave(updated);
+      return updated;
+    });
+
+    // Live Dynamic Measurement Synchronization:
+    // When any entity (e.g. chair) moves, recalculate affected measurements in real-time
+    setMeasurements((prevMeas) =>
+      prevMeas.map((m) => {
+        let updatedFrom = m.fromCoord;
+        let updatedTo = m.toCoord;
+        let hasChanged = false;
+
+        if (m.fromEntityId === id) {
+          updatedFrom = newPos;
+          hasChanged = true;
+        }
+        if (m.toEntityId === id || (id === 'ent-furn-chair' && m.id === 'm-01')) {
+          updatedTo = newPos;
+          hasChanged = true;
+        }
+
+        if (hasChanged) {
+          const newDist = Math.hypot(
+            updatedTo[0] - updatedFrom[0],
+            updatedTo[1] - updatedFrom[1],
+            updatedTo[2] - updatedFrom[2]
+          );
+          return {
+            ...m,
+            fromCoord: updatedFrom,
+            toCoord: updatedTo,
+            distanceMeters: parseFloat(newDist.toFixed(2)),
+          };
+        }
+        return m;
+      })
     );
   };
 
   const handleUpdateEntityRotation = (id: string, rotY: number, fullRotation?: [number, number, number]) => {
-    setDetectedEntities((prev) =>
-      prev.map((e) =>
-        e.id === id
-          ? {
-              ...e,
-              rotation: fullRotation || [e.rotation[0], rotY, e.rotation[2]],
-            }
-          : e
-      )
-    );
+    setDetectedEntities((prev) => {
+      const updated = prev.map((e) => {
+        if (e.id !== id) return e;
+        const newRot: [number, number, number] = fullRotation || [e.rotation[0], rotY, e.rotation[2]];
+        return {
+          ...e,
+          rotation: newRot,
+          currentRotation: newRot,
+        };
+      });
+      triggerDebouncedAutosave(updated);
+      return updated;
+    });
   };
 
-  const handleAddMeasurement = (newMeas: MeasurementItem) => {
-    setMeasurements((prev) => [...prev, newMeas]);
+  const handleRestoreOriginalEntity = async (id: string) => {
+    const target = detectedEntities.find((e) => e.id === id);
+    if (!target) return;
+
+    try {
+      await api.restoreObject(caseId, id);
+    } catch (err) {
+      console.warn('API restoreObject warning:', err);
+    }
+
+    const origPos = target.originalPosition || target.position;
+    const origRot = target.originalRotation || target.rotation;
+
+    handleUpdateEntityPosition(id, origPos);
+    handleUpdateEntityRotation(id, origRot[1], origRot);
+
     const logMsg: AIMessageItem = {
       id: `msg-${Date.now()}`,
       sender: 'assistant',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      content: `VECTOR MEASUREMENT RECORDED: Distance between ${newMeas.fromName} and ${newMeas.toName} is ${newMeas.distanceMeters.toFixed(2)} m. Vector registered to scene state.`,
+      content: `RESTORE ORIGINAL: "${target.name}" returned to calibrated initial position [${origPos.join(', ')}] in database.`,
+    };
+    setAiMessages((prev) => [...prev, logMsg]);
+  };
+
+  const handleAddMeasurement = async (newMeas: MeasurementItem) => {
+    setMeasurements((prev) => [...prev, newMeas]);
+    try {
+      await api.createMeasurement(caseId, {
+        label: newMeas.label,
+        point_a: { x: newMeas.fromCoord[0], y: newMeas.fromCoord[1], z: newMeas.fromCoord[2] },
+        point_b: { x: newMeas.toCoord[0], y: newMeas.toCoord[1], z: newMeas.toCoord[2] },
+      });
+    } catch (err) {
+      console.warn('API createMeasurement warning:', err);
+    }
+
+    const logMsg: AIMessageItem = {
+      id: `msg-${Date.now()}`,
+      sender: 'assistant',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      content: `VECTOR MEASUREMENT RECORDED: Distance between ${newMeas.fromName} and ${newMeas.toName} is ${newMeas.distanceMeters.toFixed(2)} m. Vector registered to scene state in database.`,
     };
     setAiMessages((prev) => [...prev, logMsg]);
   };
@@ -241,7 +461,13 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
     setIsAddMarkerModalOpen(true);
   };
 
-  const handleConfirmResetScene = () => {
+  const handleConfirmResetScene = async () => {
+    try {
+      await api.resetScene(caseId);
+    } catch (err) {
+      console.warn('API resetScene warning:', err);
+    }
+
     setDetectedEntities(INITIAL_DETECTED_ENTITIES);
     setMarkers(INITIAL_EVIDENCE_MARKERS);
     setMeasurements(INITIAL_MEASUREMENTS);
@@ -257,10 +483,11 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
       id: `msg-${Date.now()}`,
       sender: 'assistant',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      content: `DEMONSTRATION SCENE RESTORED: All object positions, rotations, markers, and measurements reset to initial calibrated forensic baseline.`,
+      content: `DEMONSTRATION SCENE RESTORED: All object positions, rotations, markers, and measurements reset to initial calibrated forensic baseline in database.`,
     };
     setAiMessages((prev) => [...prev, logMsg]);
   };
+
 
   const handleSelectViewportTab = (tab: ViewportTab) => {
     setActiveViewportTab(tab);
@@ -428,6 +655,56 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
     setAiMessages((prev) => [...prev, logMsg]);
   };
 
+  // AI EVIDENCE SCENE UNDERSTANDING HANDLER
+  const handleAnalyzeEvidence = async (item: EvidenceItem) => {
+    if (analyzingEvidenceId) return;
+    setAnalyzingEvidenceId(item.id);
+    setAnalysisError(null);
+    setActiveAnalysisEvidenceId(item.id);
+
+    try {
+      const analysisRes = await evidenceService.analyzeEvidence(item.id);
+      setCaseEvidence((prev) =>
+        prev.map((e) => (e.id === item.id ? { ...e, analysis: analysisRes } : e))
+      );
+      setPreviewEvidenceItem((prev) =>
+        prev && prev.id === item.id ? { ...prev, analysis: analysisRes } : prev
+      );
+
+      if (analysisRes.status === 'FAILED') {
+        setAnalysisError(analysisRes.error_message || 'Analysis failed.');
+      } else if (analysisRes.status === 'COMPLETED' && analysisRes.result) {
+        const newMsg: AIMessageItem = {
+          id: `msg-${Date.now()}`,
+          sender: 'assistant',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          content: `[AI MULTIMODAL VISION]: Completed scene understanding on ${item.filename} (${item.id}) using ${analysisRes.model}. Detected ${analysisRes.result.objects.length} objects (${analysisRes.result.objects.map((o: any) => o.name).slice(0, 3).join(', ')}...), ${analysisRes.result.relationships.length} spatial relationships, and ${analysisRes.result.possible_evidence.length} investigative leads.`,
+        };
+        setAiMessages((prev) => [...prev, newMsg]);
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to complete AI scene understanding.';
+      setAnalysisError(msg);
+      const failedRecord: any = {
+        evidence_id: item.id,
+        case_id: caseId,
+        status: 'FAILED',
+        provider: 'vision',
+        model: 'ai_vision',
+        timestamp: new Date().toISOString(),
+        error_message: msg,
+      };
+      setCaseEvidence((prev) =>
+        prev.map((e) => (e.id === item.id ? { ...e, analysis: failedRecord } : e))
+      );
+      setPreviewEvidenceItem((prev) =>
+        prev && prev.id === item.id ? { ...prev, analysis: failedRecord } : prev
+      );
+    } finally {
+      setAnalyzingEvidenceId(null);
+    }
+  };
+
   // ADD 3D EVIDENCE MARKER HANDLER
   const handleAddMarker = async (markerData: {
     markerType: MarkerCategoryType;
@@ -498,6 +775,12 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
           uploadProgress={uploadProgress}
           uploadError={uploadError}
           onClearUploadError={() => setUploadError(null)}
+          onAnalyzeEvidence={handleAnalyzeEvidence}
+          analyzingEvidenceId={analyzingEvidenceId}
+          analysisError={analysisError}
+          onClearAnalysisError={() => setAnalysisError(null)}
+          activeAnalysisEvidenceId={activeAnalysisEvidenceId}
+          onSelectAnalysisEvidence={(id) => setActiveAnalysisEvidenceId(id)}
         />
 
         {/* CENTER COLUMN: 3D VIEWPORT (Largest Area) + TIMELINE */}
@@ -511,6 +794,63 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
         }}>
           {/* Main 3D Canvas Area */}
           <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            {/* Autosave Status Indicator */}
+            {saveStatus !== 'idle' && (
+              <div style={{
+                position: 'absolute',
+                top: '16px',
+                left: '70px',
+                zIndex: 26,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontFamily: 'var(--font-mono, monospace)',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                background: saveStatus === 'error'
+                  ? 'rgba(255, 51, 102, 0.2)'
+                  : saveStatus === 'saved'
+                  ? 'rgba(0, 255, 136, 0.15)'
+                  : 'rgba(0, 240, 255, 0.15)',
+                border: `1px solid ${
+                  saveStatus === 'error'
+                    ? '#ff3366'
+                    : saveStatus === 'saved'
+                    ? '#00ff88'
+                    : '#00f0ff'
+                }`,
+                color: saveStatus === 'error'
+                  ? '#ff3366'
+                  : saveStatus === 'saved'
+                  ? '#00ff88'
+                  : '#00f0ff',
+                boxShadow: `0 0 12px ${
+                  saveStatus === 'error'
+                    ? 'rgba(255, 51, 102, 0.3)'
+                    : saveStatus === 'saved'
+                    ? 'rgba(0, 255, 136, 0.25)'
+                    : 'rgba(0, 240, 255, 0.25)'
+                }`,
+                backdropFilter: 'blur(8px)',
+                transition: 'all 0.25s ease',
+              }}>
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: 'currentColor',
+                }} />
+                <span>
+                  {saveStatus === 'saving' && 'AUTOSAVING 3D TELEMETRY...'}
+                  {saveStatus === 'saved' && '✓ TELEMETRY SYNCED'}
+                  {saveStatus === 'error' && '⚠ SYNC FAILED'}
+                </span>
+              </div>
+            )}
+
             {/* Vertical Left 3D Viewport Toolbar */}
             <SceneToolbar
               activeTool={activeTool}
@@ -529,6 +869,7 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
               onUpdateEntityRotation={handleUpdateEntityRotation}
               onAddMeasurement={handleAddMeasurement}
               onOpenEvidencePlacement={handleOpenEvidencePlacement}
+              onRestoreOriginalEntity={handleRestoreOriginalEntity}
               activeTool={activeTool}
               activeTab={activeViewportTab}
               onSelectTab={handleSelectViewportTab}
@@ -691,6 +1032,7 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
                 onUpdateEntityRotation={handleUpdateEntityRotation}
                 onToggleVisibility={handleToggleEntityVisibility}
                 onAddEvidenceAtCursor={() => setIsAddMarkerModalOpen(true)}
+                onRestoreOriginalEntity={handleRestoreOriginalEntity}
               />
             )}
 
@@ -780,6 +1122,8 @@ export const InvestigationPage: React.FC<InvestigationPageProps> = ({
         evidence={previewEvidenceItem}
         onClose={() => setPreviewEvidenceItem(null)}
         onDelete={(item) => setEvidenceToDelete(item)}
+        onAnalyze={handleAnalyzeEvidence}
+        isAnalyzing={analyzingEvidenceId === previewEvidenceItem?.id}
       />
 
       {/* 2. MODAL: DELETE CONFIRMATION */}

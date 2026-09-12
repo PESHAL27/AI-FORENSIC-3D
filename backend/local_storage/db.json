@@ -1,0 +1,890 @@
+{
+  "cases": [
+    {
+      "id": "case-001",
+      "case_number": "CASE-2026-FR-0941",
+      "title": "Downtown Office Kinetic Breach Event",
+      "description": "Perimeter ballistic breach, kinetic chair deflection, and high-velocity glass dispersion.",
+      "status": "ACTIVE",
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "case-002",
+      "case_number": "CASE-2026-FR-0883",
+      "title": "Substation Perimeter Intrusion",
+      "description": "Chain-link boundary shear and high-voltage substation perimeter breach.",
+      "status": "ARCHIVED",
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "case-003",
+      "case_number": "CASE-2026-FR-0714",
+      "title": "Harbor Warehouse Loading Dock Incident",
+      "description": "Industrial cargo elevator failure and kinematic telemetry reconstruction.",
+      "status": "IN_REVIEW",
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev-61c88e24",
+      "case_id": "case-001",
+      "original_filename": "scene_photo.jpg",
+      "filename": "scene_photo.jpg",
+      "storage_path": "cases/case-001/evidence/ev-61c88e24/scene_photo.jpg",
+      "file_type": "IMAGE",
+      "mime_type": "image/jpeg",
+      "file_size": 24,
+      "status": "UPLOADED",
+      "metadata": {},
+      "download_url": "/api/evidence/ev-61c88e24/download",
+      "created_at": "2026-09-12T04:08:59.589699+00:00",
+      "updated_at": "2026-09-12T04:42:54.537827+00:00",
+      "analysis": {
+        "evidence_id": "ev-61c88e24",
+        "case_id": "case-001",
+        "status": "COMPLETED",
+        "provider": "openrouter",
+        "model": "inclusionai/ling-3.0-flash-vl:free",
+        "timestamp": "2026-09-12T04:42:54.537827+00:00",
+        "error_message": null,
+        "result": {
+          "scene_type": "indoor_office",
+          "overall_description": "An office room exhibiting significant disarray with an overturned chair, scattered documents, glass debris on the floor, and a shattered window. Multiple yellow evidence markers are distributed throughout the space.",
+          "objects": [
+            {
+              "id": "obj-001",
+              "name": "overturned chair",
+              "category": "furniture",
+              "confidence": 0.98,
+              "observation": "Black mesh ergonomic office chair is overturned on the carpet near the central desk.",
+              "state": "observed"
+            },
+            {
+              "id": "obj-002",
+              "name": "office desk",
+              "category": "furniture",
+              "confidence": 0.98,
+              "observation": "Large L-shaped wooden desk with computer monitor, telephone, and scattered items.",
+              "state": "observed"
+            },
+            {
+              "id": "obj-003",
+              "name": "broken window",
+              "category": "doors_windows",
+              "confidence": 0.98,
+              "observation": "Large window with extensively shattered glass panes, exterior building visible through the opening.",
+              "state": "observed"
+            },
+            {
+              "id": "obj-004",
+              "name": "scattered papers",
+              "category": "objects",
+              "confidence": 0.95,
+              "observation": "Numerous documents and folders scattered across the floor and desk surface.",
+              "state": "observed"
+            },
+            {
+              "id": "obj-005",
+              "name": "evidence markers",
+              "category": "evidence",
+              "confidence": 0.95,
+              "observation": "Multiple yellow numbered tent markers placed on the floor and desk surfaces.",
+              "state": "observed"
+            },
+            {
+              "id": "obj-006",
+              "name": "filing cabinets",
+              "category": "furniture",
+              "confidence": 0.95,
+              "observation": "Beige metal filing cabinets positioned along the right wall.",
+              "state": "observed"
+            },
+            {
+              "id": "obj-007",
+              "name": "glass debris",
+              "category": "evidence",
+              "confidence": 0.95,
+              "observation": "Small glass fragments scattered across the carpet, concentrated near the window area.",
+              "state": "observed"
+            },
+            {
+              "id": "obj-008",
+              "name": "footprints",
+              "category": "evidence",
+              "confidence": 0.85,
+              "observation": "Visible shoe print impressions on the carpet near the right side of the room.",
+              "state": "observed"
+            },
+            {
+              "id": "obj-009",
+              "name": "yellow measuring tool",
+              "category": "evidence",
+              "confidence": 0.9,
+              "observation": "Yellow L-shaped measuring ruler lying on the carpet near the center.",
+              "state": "observed"
+            }
+          ],
+          "relationships": [
+            {
+              "subject": "obj-001",
+              "relation": "near",
+              "object": "obj-002",
+              "confidence": 0.95
+            },
+            {
+              "subject": "obj-001",
+              "relation": "in_front_of",
+              "object": "obj-002",
+              "confidence": 0.9
+            },
+            {
+              "subject": "obj-007",
+              "relation": "near",
+              "object": "obj-003",
+              "confidence": 0.95
+            },
+            {
+              "subject": "obj-008",
+              "relation": "near",
+              "object": "obj-006",
+              "confidence": 0.9
+            },
+            {
+              "subject": "obj-004",
+              "relation": "on",
+              "object": "obj-002",
+              "confidence": 0.8
+            }
+          ],
+          "observations": [
+            {
+              "text": "The floor exhibits beige carpeting with diffuse ambient illumination from overhead fluorescent lights.",
+              "state": "observed"
+            },
+            {
+              "text": "The window shows a spider-web fracture pattern consistent with high-impact force.",
+              "state": "observed"
+            },
+            {
+              "text": "The room contains multiple yellow forensic evidence markers indicating points of interest.",
+              "state": "observed"
+            }
+          ],
+          "possible_evidence": [
+            "Overturned chair trajectory",
+            "Glass fracture patterns",
+            "Footprint impressions on carpet",
+            "Displaced documents suggesting search activity"
+          ],
+          "uncertainties": [
+            "Exact point of entry cannot be definitively determined from image alone",
+            "Shadowed area behind the desk prevents clear visibility of rear wall details",
+            "Time of incident is unknown"
+          ]
+        }
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene-001",
+      "case_id": "case-001",
+      "name": "Downtown Office 3D Reconstruction",
+      "version": 11,
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    }
+  ],
+  "scene_objects": [
+    {
+      "id": "ent-person-01",
+      "scene_id": "scene-001",
+      "name": "Subject Alpha (Kinematic Pose)",
+      "type": "person",
+      "model": "",
+      "original_position": {
+        "x": 0.1,
+        "y": 0.0,
+        "z": 0.3
+      },
+      "current_position": {
+        "x": 0.1,
+        "y": 0.0,
+        "z": 0.3
+      },
+      "original_rotation": {
+        "x": 0.0,
+        "y": 0.45,
+        "z": 0.0
+      },
+      "current_rotation": {
+        "x": 0.0,
+        "y": 0.45,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "People",
+        "confidence": 0.984
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    },
+    {
+      "id": "ent-furn-chair",
+      "scene_id": "scene-001",
+      "name": "Ergonomic Task Chair (Overturned)",
+      "type": "chair",
+      "model": "",
+      "original_position": {
+        "x": -1.9,
+        "y": 0.35,
+        "z": 0.3
+      },
+      "current_position": {
+        "x": -1.9,
+        "y": 0.35,
+        "z": 0.3
+      },
+      "original_rotation": {
+        "x": 1.57,
+        "y": 0.3,
+        "z": 0.8
+      },
+      "current_rotation": {
+        "x": 1.57,
+        "y": 5.0123889803846895,
+        "z": 0.8
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "Furniture",
+        "confidence": 0.961
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    },
+    {
+      "id": "ent-furn-table",
+      "scene_id": "scene-001",
+      "name": "Reinforced Conference Desk",
+      "type": "table",
+      "model": "",
+      "original_position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.6
+      },
+      "current_position": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -0.6
+      },
+      "original_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "current_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "Furniture",
+        "confidence": 0.992
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    },
+    {
+      "id": "ent-glass-field",
+      "scene_id": "scene-001",
+      "name": "High-Velocity Glass Dispersion",
+      "type": "glass",
+      "model": "",
+      "original_position": {
+        "x": -0.4,
+        "y": 0.02,
+        "z": 1.3
+      },
+      "current_position": {
+        "x": -0.4,
+        "y": 0.02,
+        "z": 1.3
+      },
+      "original_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "current_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "Objects",
+        "confidence": 0.947
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    },
+    {
+      "id": "ent-door-north",
+      "scene_id": "scene-001",
+      "name": "North Primary Egress Door",
+      "type": "door",
+      "model": "",
+      "original_position": {
+        "x": 2.8,
+        "y": 0.0,
+        "z": -2.2
+      },
+      "current_position": {
+        "x": 2.8,
+        "y": 0.0,
+        "z": -2.2
+      },
+      "original_rotation": {
+        "x": 0.0,
+        "y": 1.57,
+        "z": 0.0
+      },
+      "current_rotation": {
+        "x": 0.0,
+        "y": 1.57,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "Doors / Windows",
+        "confidence": 0.988
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    },
+    {
+      "id": "ent-window-east",
+      "scene_id": "scene-001",
+      "name": "East Perimeter Glazing (Breached)",
+      "type": "window",
+      "model": "",
+      "original_position": {
+        "x": -3.0,
+        "y": 1.4,
+        "z": 0.2
+      },
+      "current_position": {
+        "x": -3.0,
+        "y": 1.4,
+        "z": 0.2
+      },
+      "original_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "current_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "Doors / Windows",
+        "confidence": 0.973
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    },
+    {
+      "id": "ent-obj-casing",
+      "scene_id": "scene-001",
+      "name": "Spent 9x19mm Brass Casing",
+      "type": "marker",
+      "model": "",
+      "original_position": {
+        "x": 1.1,
+        "y": 0.015,
+        "z": 0.5
+      },
+      "current_position": {
+        "x": 1.1,
+        "y": 0.015,
+        "z": 0.5
+      },
+      "original_rotation": {
+        "x": 0.0,
+        "y": 0.7,
+        "z": 0.0
+      },
+      "current_rotation": {
+        "x": 0.0,
+        "y": 0.7,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "Objects",
+        "confidence": 0.952
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    },
+    {
+      "id": "ent-env-room",
+      "scene_id": "scene-001",
+      "name": "Spatial Enclosure (6.2m x 5.8m x 2.8m)",
+      "type": "wall",
+      "model": "",
+      "original_position": {
+        "x": 0.0,
+        "y": 1.4,
+        "z": 0.0
+      },
+      "current_position": {
+        "x": 0.0,
+        "y": 1.4,
+        "z": 0.0
+      },
+      "original_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "current_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "Environment",
+        "confidence": 0.999
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    },
+    {
+      "id": "ent-marker-group",
+      "scene_id": "scene-001",
+      "name": "Forensic Evidence Marker Cluster (01 - 04)",
+      "type": "marker",
+      "model": "",
+      "original_position": {
+        "x": 0.0,
+        "y": 0.25,
+        "z": 0.0
+      },
+      "current_position": {
+        "x": 0.0,
+        "y": 0.25,
+        "z": 0.0
+      },
+      "original_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "current_rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "metadata": {
+        "category": "Evidence",
+        "confidence": 0.985
+      },
+      "created_at": "2026-09-12T04:44:12.415494+00:00",
+      "updated_at": "2026-09-12T04:44:12.415494+00:00"
+    }
+  ],
+  "evidence_markers": [
+    {
+      "id": "ev-01",
+      "case_id": "case-001",
+      "label": "Impact & Glass Dispersion",
+      "marker_type": "DAMAGE",
+      "position_x": -0.4,
+      "position_y": 0.25,
+      "position_z": 1.3,
+      "metadata": {
+        "number": "01",
+        "confidence": 0.984
+      },
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "ev-02",
+      "case_id": "case-001",
+      "label": "Overturned Chair Trajectory",
+      "marker_type": "OBJECT",
+      "position_x": -1.9,
+      "position_y": 0.25,
+      "position_z": 0.3,
+      "metadata": {
+        "number": "02",
+        "confidence": 0.951
+      },
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "ev-03",
+      "case_id": "case-001",
+      "label": "Latent Sole Impression",
+      "marker_type": "PERSON",
+      "position_x": 1.4,
+      "position_y": 0.25,
+      "position_z": 0.9,
+      "metadata": {
+        "number": "03",
+        "confidence": 0.927
+      },
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "ev-04",
+      "case_id": "case-001",
+      "label": "Egress Point / Latch Residue",
+      "marker_type": "DAMAGE",
+      "position_x": 2.7,
+      "position_y": 0.25,
+      "position_z": -2.0,
+      "metadata": {
+        "number": "04",
+        "confidence": 0.972
+      },
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "mk-4181ba07",
+      "case_id": "case-001",
+      "evidence_id": null,
+      "marker_type": "EVIDENCE",
+      "label": "9mm Shell Casing Bravo",
+      "position_x": 0.0,
+      "position_y": 0.25,
+      "position_z": 0.0,
+      "metadata": {
+        "description": "Spent 9mm Luger shell casing recovered near desk legSpent 9mm Luger shell casing recovered near desk leg"
+      },
+      "created_at": "2026-09-12T03:55:49.348582+00:00",
+      "updated_at": "2026-09-12T03:55:49.348582+00:00"
+    }
+  ],
+  "measurements": [
+    {
+      "id": "m-01",
+      "case_id": "case-001",
+      "label": "Impact to Chair Displacement",
+      "point_a": {
+        "x": -0.4,
+        "y": 0.25,
+        "z": 1.3
+      },
+      "point_b": {
+        "x": -1.9,
+        "y": 0.25,
+        "z": 0.3
+      },
+      "distance": 1.8,
+      "unit": "m",
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "m-02",
+      "case_id": "case-001",
+      "label": "Egress Threshold to Sole Impression",
+      "point_a": {
+        "x": 2.7,
+        "y": 0.25,
+        "z": -2.0
+      },
+      "point_b": {
+        "x": 1.4,
+        "y": 0.25,
+        "z": 0.9
+      },
+      "distance": 3.18,
+      "unit": "m",
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "m-03",
+      "case_id": "case-001",
+      "label": "Window Breach to Impact Origin",
+      "point_a": {
+        "x": -3.0,
+        "y": 1.4,
+        "z": 0.2
+      },
+      "point_b": {
+        "x": -0.4,
+        "y": 0.25,
+        "z": 1.3
+      },
+      "distance": 2.83,
+      "unit": "m",
+      "created_at": "2026-09-12T03:43:12.801028+00:00",
+      "updated_at": "2026-09-12T03:43:12.801028+00:00"
+    }
+  ],
+  "timeline_events": [
+    {
+      "id": "t-10",
+      "case_id": "case-001",
+      "time_offset": "T-10s",
+      "event_name": "Person Enters",
+      "description": "Subject Alpha crosses north portal into forensic perimeter.",
+      "event_type": "entry",
+      "scene_state": {},
+      "created_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "t-7",
+      "case_id": "case-001",
+      "time_offset": "T-7s",
+      "event_name": "Person Approaches Desk",
+      "description": "Subject traverses central zone towards desk.",
+      "event_type": "movement",
+      "scene_state": {},
+      "created_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "t-4",
+      "case_id": "case-001",
+      "time_offset": "T-4s",
+      "event_name": "Person Reaches Chair",
+      "description": "Subject occupies task chair.",
+      "event_type": "interaction",
+      "scene_state": {},
+      "created_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "t-2",
+      "case_id": "case-001",
+      "time_offset": "T-2s",
+      "event_name": "Chair Moves",
+      "description": "Sudden kinematic thrust. Chair displaced backward.",
+      "event_type": "movement",
+      "scene_state": {},
+      "created_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "t-0",
+      "case_id": "case-001",
+      "time_offset": "T=0",
+      "event_name": "Impact",
+      "description": "Primary kinetic event at east window.",
+      "event_type": "impact",
+      "scene_state": {},
+      "created_at": "2026-09-12T03:43:12.801028+00:00"
+    },
+    {
+      "id": "t-p2",
+      "case_id": "case-001",
+      "time_offset": "T+2s",
+      "event_name": "Glass Moves",
+      "description": "Secondary particle dispersion field stabilizes.",
+      "event_type": "dispersion",
+      "scene_state": {},
+      "created_at": "2026-09-12T03:43:12.801028+00:00"
+    }
+  ],
+  "analyses": {
+    "ev-61c88e24": {
+      "evidence_id": "ev-61c88e24",
+      "case_id": "case-001",
+      "status": "COMPLETED",
+      "provider": "openrouter",
+      "model": "inclusionai/ling-3.0-flash-vl:free",
+      "timestamp": "2026-09-12T04:42:54.537827+00:00",
+      "error_message": null,
+      "result": {
+        "scene_type": "indoor_office",
+        "overall_description": "An office room exhibiting significant disarray with an overturned chair, scattered documents, glass debris on the floor, and a shattered window. Multiple yellow evidence markers are distributed throughout the space.",
+        "objects": [
+          {
+            "id": "obj-001",
+            "name": "overturned chair",
+            "category": "furniture",
+            "confidence": 0.98,
+            "observation": "Black mesh ergonomic office chair is overturned on the carpet near the central desk.",
+            "state": "observed"
+          },
+          {
+            "id": "obj-002",
+            "name": "office desk",
+            "category": "furniture",
+            "confidence": 0.98,
+            "observation": "Large L-shaped wooden desk with computer monitor, telephone, and scattered items.",
+            "state": "observed"
+          },
+          {
+            "id": "obj-003",
+            "name": "broken window",
+            "category": "doors_windows",
+            "confidence": 0.98,
+            "observation": "Large window with extensively shattered glass panes, exterior building visible through the opening.",
+            "state": "observed"
+          },
+          {
+            "id": "obj-004",
+            "name": "scattered papers",
+            "category": "objects",
+            "confidence": 0.95,
+            "observation": "Numerous documents and folders scattered across the floor and desk surface.",
+            "state": "observed"
+          },
+          {
+            "id": "obj-005",
+            "name": "evidence markers",
+            "category": "evidence",
+            "confidence": 0.95,
+            "observation": "Multiple yellow numbered tent markers placed on the floor and desk surfaces.",
+            "state": "observed"
+          },
+          {
+            "id": "obj-006",
+            "name": "filing cabinets",
+            "category": "furniture",
+            "confidence": 0.95,
+            "observation": "Beige metal filing cabinets positioned along the right wall.",
+            "state": "observed"
+          },
+          {
+            "id": "obj-007",
+            "name": "glass debris",
+            "category": "evidence",
+            "confidence": 0.95,
+            "observation": "Small glass fragments scattered across the carpet, concentrated near the window area.",
+            "state": "observed"
+          },
+          {
+            "id": "obj-008",
+            "name": "footprints",
+            "category": "evidence",
+            "confidence": 0.85,
+            "observation": "Visible shoe print impressions on the carpet near the right side of the room.",
+            "state": "observed"
+          },
+          {
+            "id": "obj-009",
+            "name": "yellow measuring tool",
+            "category": "evidence",
+            "confidence": 0.9,
+            "observation": "Yellow L-shaped measuring ruler lying on the carpet near the center.",
+            "state": "observed"
+          }
+        ],
+        "relationships": [
+          {
+            "subject": "obj-001",
+            "relation": "near",
+            "object": "obj-002",
+            "confidence": 0.95
+          },
+          {
+            "subject": "obj-001",
+            "relation": "in_front_of",
+            "object": "obj-002",
+            "confidence": 0.9
+          },
+          {
+            "subject": "obj-007",
+            "relation": "near",
+            "object": "obj-003",
+            "confidence": 0.95
+          },
+          {
+            "subject": "obj-008",
+            "relation": "near",
+            "object": "obj-006",
+            "confidence": 0.9
+          },
+          {
+            "subject": "obj-004",
+            "relation": "on",
+            "object": "obj-002",
+            "confidence": 0.8
+          }
+        ],
+        "observations": [
+          {
+            "text": "The floor exhibits beige carpeting with diffuse ambient illumination from overhead fluorescent lights.",
+            "state": "observed"
+          },
+          {
+            "text": "The window shows a spider-web fracture pattern consistent with high-impact force.",
+            "state": "observed"
+          },
+          {
+            "text": "The room contains multiple yellow forensic evidence markers indicating points of interest.",
+            "state": "observed"
+          }
+        ],
+        "possible_evidence": [
+          "Overturned chair trajectory",
+          "Glass fracture patterns",
+          "Footprint impressions on carpet",
+          "Displaced documents suggesting search activity"
+        ],
+        "uncertainties": [
+          "Exact point of entry cannot be definitively determined from image alone",
+          "Shadowed area behind the desk prevents clear visibility of rear wall details",
+          "Time of incident is unknown"
+        ]
+      }
+    }
+  }
+}

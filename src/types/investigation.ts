@@ -1,3 +1,5 @@
+import type { EvidenceAnalysisResponse, SceneAnalysisResult } from '../services/api';
+
 export type NavigationTab = 'Home' | 'Investigation' | 'Scenarios' | 'Timeline' | 'Evidence' | 'Reports';
 
 export type EvidenceUploadType =
@@ -30,6 +32,7 @@ export interface EvidenceItem {
   status: EvidenceStatus;
   preview?: string; // Data URL or blob URL
   source: 'upload' | 'manual' | 'telemetry';
+  analysis?: EvidenceAnalysisResponse;
   metadata: {
     mimeType: string;
     checksum?: string;
@@ -41,6 +44,7 @@ export interface EvidenceItem {
     [key: string]: any;
   };
 }
+
 
 export interface EvidenceUploadProgress {
   evidenceId: string;
@@ -64,23 +68,30 @@ export interface DetectedEntity {
   name: string;
   category: DetectedObjectCategory;
   confidence: number;
+  originalPosition?: [number, number, number];
+  currentPosition?: [number, number, number];
+  originalRotation?: [number, number, number];
+  currentRotation?: [number, number, number];
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];
   visible: boolean;
-  type: 'person' | 'chair' | 'table' | 'glass' | 'door' | 'wall' | 'window' | 'marker';
+  type: 'person' | 'chair' | 'table' | 'glass' | 'door' | 'wall' | 'window' | 'marker' | string;
+  selectable?: boolean;
+  movable?: boolean;
+  rotatable?: boolean;
   details: string;
 }
 
 export interface EvidenceMarkerItem {
   id: string;
-  caseId: string;
+  caseId?: string;
   number: string;
   label: string;
   description: string;
   confidence: number;
   type: string;
-  markerType: MarkerCategoryType;
+  markerType?: MarkerCategoryType;
   coordinates: [number, number, number];
   linkedEvidenceId?: string;
   verified: boolean;
@@ -94,6 +105,8 @@ export interface MeasurementItem {
   fromCoord: [number, number, number];
   toCoord: [number, number, number];
   distanceMeters: number;
+  fromEntityId?: string;
+  toEntityId?: string;
 }
 
 export interface ScenarioItem {

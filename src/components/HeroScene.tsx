@@ -85,7 +85,7 @@ export const HeroScene: React.FC = () => {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 2.1;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(renderer.domElement);
 
     // 3. OrbitControls - True 360° 3D Orbit, Drag to Rotate, Scroll to Zoom
